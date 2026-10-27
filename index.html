@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datnow</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: system-ui, sans-serif;
+}
+header {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 20px;
+  font-size: 26px;
+  font-weight: bold;
+  color: #58a6ff;
+}
+main { max-width: 720px; margin: auto; padding: 20px; }
+.post, .panel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.post p { white-space: pre-wrap; overflow-wrap: anywhere; }
+small { color: #8b949e; }
+input {
+  width: 100%;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: white;
+  padding: 13px;
+  font: inherit;
+}
+button, .button {
+  background: #238636;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  margin: 5px 5px 5px 0;
+}
+button:hover, .button:hover { filter: brightness(1.15); }
+</style>
+</head>
+<body>
+<header>◆ Datnow</header>
+<main>
+  <section class="panel">
+    <h2>Welcome to Datnow!</h2>
+    <p>Share your thoughts with the world.</p>
+    <a class="button"
+       href="https://github.com/samwise1776/Datnow/issues/new"
+       target="_blank" rel="noopener">
+       Submit a post
+    </a>
+    <button onclick="loadPosts()">Refresh feed</button>
+  </section>
+
+  <input id="search" placeholder="Search posts...">
+
+  <h2>Latest posts</h2>
+  <div id="feed">Loading posts...</div>
+</main>
+
+<script>
+const REPO = "samwise1776/Datnow";
+const BRANCH = "main";
+const API =
+  `https://api.github.com/repos/${REPO}/contents/posts.json?ref=${BRANCH}`;
+
+let posts = [];
+
+async function loadPosts() {
+  const feed = document.getElementById("feed");
+  feed.textContent = "Loading...";
+
+  try {
+    const response = await fetch(API, {
+      headers: { Accept: "application/vnd.github+json" },
+      cache: "no-store"
+    });
+
+    if (!response.ok) throw new Error("HTTP " + response.status);
+
+    const file = await response.json();
+    const binary = atob(file.content.replace(/\s/g, ""));
+    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+
+    if (Array.isArray(data.posts)) {
+      posts = data.posts;
+    } else {
+      posts = Object.entries(data).map(([key, value]) => ({
+        id: key,
+        username: key,
+        content: typeof value === "string"
+          ? value : JSON.stringify(value),
+        createdAt: null
+      }));
+    }
+
+    render();
+  } catch (error) {
+    feed.textContent = "Unable to load posts: " + error.message;
+  }
+}
+
+function render() {
+  const feed = document.getElementById("feed");
+  const search = document.getElementById("search")
+    .value.toLowerCase();
+
+  feed.replaceChildren();
+
+  const filtered = posts.filter(post =>
+    String(post.username || "").toLowerCase().includes(search) ||
+    String(post.content || "").toLowerCase().includes(search)
+  ).slice().reverse();
+
+  if (!filtered.length) {
+    feed.textContent = "No posts found.";
+    return;
+  }
+
+  for (const post of filtered) {
+    const card = document.createElement("article");
+    card.className = "post";
+
+    const name = document.createElement("strong");
+    name.textContent = "@" + (post.username || "anonymous");
+
+    const content = document.createElement("p");
+    content.textContent = post.content || "";
+
+    const date = document.createElement("small");
+    date.textContent = post.createdAt
+      ? new Date(post.createdAt).toLocaleString()
+      : "Datnow post";
+
+    card.append(name, content, date);
+    feed.append(card);
+  }
+}
+
+document.getElementById("search")
+  .addEventListener("input", render);
+
+loadPosts();
+</script>
+</body>
+</html>
