@@ -52,6 +52,21 @@ button, .button {
   margin: 5px 5px 5px 0;
 }
 button:hover, .button:hover { filter: brightness(1.15); }
+
+textarea {
+  width: 100%;
+  min-height: 130px;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #0d1117;
+  color: white;
+  border: 1px solid #30363d;
+  font: inherit;
+  resize: vertical;
+}
+#composer input { margin-top: 10px; }
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -60,11 +75,17 @@ button:hover, .button:hover { filter: brightness(1.15); }
   <section class="panel">
     <h2>Welcome to Datnow!</h2>
     <p>Share your thoughts with the world.</p>
-    <a class="button"
-       href="https://github.com/samwise1776/Datnow/issues/new"
-       target="_blank" rel="noopener">
-       Submit a post
-    </a>
+    <button onclick="document.getElementById('composer').hidden = !document.getElementById('composer').hidden">
+      Create post
+    </button>
+    <section id="composer" class="panel" hidden>
+      <h3>New post</h3>
+      <input id="post-user" maxlength="32" placeholder="Username">
+      <textarea id="post-content" maxlength="2000" placeholder="What's on your mind?"></textarea>
+      <input id="post-password" type="password" placeholder="Publishing password">
+      <button id="publish-button" onclick="publishPost()">Publish</button>
+      <p id="publish-status"></p>
+    </section>
     <button onclick="loadPosts()">Refresh feed</button>
   </section>
 
@@ -76,7 +97,7 @@ button:hover, .button:hover { filter: brightness(1.15); }
 
 <script>
 const REPO = "samwise1776/Datnow";
-const BRANCH = "main";
+const BRANCH = "master";
 const API =
   `https://api.github.com/repos/${REPO}/contents/posts.json?ref=${BRANCH}`;
 
@@ -156,6 +177,46 @@ function render() {
 
 document.getElementById("search")
   .addEventListener("input", render);
+
+
+async function publishPost() {
+  const username = document.getElementById("post-user").value.trim();
+  const content = document.getElementById("post-content").value.trim();
+  const password = document.getElementById("post-password").value;
+  const status = document.getElementById("publish-status");
+  const button = document.getElementById("publish-button");
+
+  if (!username || !content || !password) {
+    status.textContent = "Please fill in all fields.";
+    return;
+  }
+
+  button.disabled = true;
+  status.textContent = "Publishing...";
+
+  try {
+    const response = await fetch("https://datnow-api.appalog.workers.dev", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + password
+      },
+      body: JSON.stringify({ username, content })
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Publishing failed");
+
+    status.textContent = "✅ Post published!";
+    document.getElementById("post-content").value = "";
+    document.getElementById("post-password").value = "";
+    await loadPosts();
+  } catch (error) {
+    status.textContent = "❌ " + error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
 
 loadPosts();
 </script>
